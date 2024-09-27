@@ -129,6 +129,29 @@ void *copy_thread(void *arg) {
     pthread_exit(NULL);
 }
 
+//Creacion del pool de hilos
+void init_thread_pool(pthread_t *threads, thread_data_t *thread_data, int num_threads, char *src_dir, char *dst_dir) {
+    for (int i = 0; i < num_threads; i++) {
+        thread_data[i].thread_id = i;
+        thread_data[i].src_dir = src_dir;
+        thread_data[i].dst_dir = dst_dir;
+        int rc = pthread_create(&threads[i], NULL, copy_thread, (void *)&thread_data[i]);
+        if (rc) {
+            fprintf(stderr, "Error al crear el hilo %d, código de retorno: %d\n", i, rc);
+            exit(-1);
+        }
+    }
+}
+
+//realizar espera de los hilos
+void wait_for_threads(pthread_t *threads, int num_threads) {
+    for (int i = 0; i < num_threads; i++) {
+        pthread_join(threads[i], NULL);
+    }
+}
+
+
+
 int main(int argc, char *argv[]) {
     if (argc < 3) {
         fprintf(stderr, "Uso: %s <directorio_origen> <directorio_destino>\n", argv[0]);
@@ -144,28 +167,27 @@ int main(int argc, char *argv[]) {
     }
     fprintf(logfile, "Archivo,Hilo,Tiempo(segundos)\n");
     files = malloc(1000 * sizeof(char *));
+    if (files == NULL) {
+        perror("Error al reservar memoria");
+        exit(EXIT_FAILURE);
+    }
     read_directory(src_dir, dst_dir);
-
-    pthread_t threads[NUM_THREADS];
-    thread_data_t thread_data[NUM_THREADS];
 
     pthread_mutex_init(&lock, NULL);
     pthread_mutex_init(&log_lock, NULL);
 
-    // Crear hilos
-    for (int i = 0; i < NUM_THREADS; i++) {
-        thread_data[i].thread_id = i;
-        thread_data[i].src_dir = src_dir;
-        thread_data[i].dst_dir = dst_dir;
-        pthread_create(&threads[i], NULL, copy_thread, (void *)&thread_data[i]);
-    }
+     // Crear hilos
+    pthread_t threads[NUM_THREADS];
+    thread_data_t thread_data[NUM_THREADS];
 
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(threads[i], NULL);
-    }
+    // Inicializar pool de hilos
+    init_thread_pool(threads, thread_data, NUM_THREADS, src_dir, dst_dir);
 
+    // Esperar a que los hilos terminen
+    wait_for_threads(threads, NUM_THREADS);
+    
+    // Limpiar y liberar recursos
     fclose(logfile);
-
     pthread_mutex_destroy(&lock);
     pthread_mutex_destroy(&log_lock);
     free(files);
