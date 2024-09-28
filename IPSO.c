@@ -54,7 +54,7 @@ void copy_file(char *src, char *dst, int thread_id) {
     fclose(dst_file);
     clock_gettime(CLOCK_MONOTONIC, &end);
     double time_taken = (end.tv_sec - start.tv_sec) * 1e9;
-    time_taken = (time_taken + (end.tv_nsec - start.tv_nsec)) * 1e-9;  // Convertir a segundos
+    time_taken = (time_taken + (end.tv_nsec - start.tv_nsec)) * 1e-9;
     pthread_mutex_lock(&log_lock);
     fprintf(logfile, "%s,%d,%.9f\n", src, thread_id, time_taken);
     pthread_mutex_unlock(&log_lock);
@@ -75,7 +75,6 @@ void read_directory(char *src_dir, char *dst_dir) {
 
     if ((dir = opendir(src_dir)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
-            // Omitir . y ..
             if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
                 continue;
             }
@@ -87,12 +86,12 @@ void read_directory(char *src_dir, char *dst_dir) {
 
             if (ent->d_type == DT_DIR) {
                 // Es un subdirectorio
-                create_directory(dst_path);  // Crear subdirectorio en el destino
-                read_directory(src_path, dst_path);  // Recursión en el subdirectorio
+                create_directory(dst_path);  
+                read_directory(src_path, dst_path);  
             } else if (ent->d_type == DT_REG) {
                 // Es un archivo
                 pthread_mutex_lock(&lock);
-                files[file_count++] = strdup(src_path);  // Guardar archivo para copiarlo
+                files[file_count++] = strdup(src_path);
                 pthread_mutex_unlock(&lock);
             }
         }
@@ -103,7 +102,7 @@ void read_directory(char *src_dir, char *dst_dir) {
     }
 }
 
-// Función para que el hilo copie archivos
+
 void *copy_thread(void *arg) {
     thread_data_t *data = (thread_data_t *)arg;
 
@@ -117,19 +116,18 @@ void *copy_thread(void *arg) {
         char *file = files[--file_count];
         pthread_mutex_unlock(&lock);
 
-        // Obtener nombre del archivo para el destino
         char dst_path[512];
-        snprintf(dst_path, sizeof(dst_path), "%s/%s", data->dst_dir, file + strlen(data->src_dir) + 1);  // Quitar la parte src_dir de la ruta
+        snprintf(dst_path, sizeof(dst_path), "%s/%s", data->dst_dir, file + strlen(data->src_dir) + 1);
 
         printf("Thread %d copiando: %s\n", data->thread_id, file);
-        copy_file(file, dst_path, data->thread_id);  // Pasar el ID del hilo al copiar
+        copy_file(file, dst_path, data->thread_id); 
         free(file);
     }
 
     pthread_exit(NULL);
 }
 
-//Creacion del pool de hilos
+
 void init_thread_pool(pthread_t *threads, thread_data_t *thread_data, int num_threads, char *src_dir, char *dst_dir) {
     for (int i = 0; i < num_threads; i++) {
         thread_data[i].thread_id = i;
@@ -143,7 +141,7 @@ void init_thread_pool(pthread_t *threads, thread_data_t *thread_data, int num_th
     }
 }
 
-//realizar espera de los hilos
+
 void wait_for_threads(pthread_t *threads, int num_threads) {
     for (int i = 0; i < num_threads; i++) {
         pthread_join(threads[i], NULL);
@@ -176,17 +174,14 @@ int main(int argc, char *argv[]) {
     pthread_mutex_init(&lock, NULL);
     pthread_mutex_init(&log_lock, NULL);
 
-     // Crear hilos
     pthread_t threads[NUM_THREADS];
     thread_data_t thread_data[NUM_THREADS];
 
-    // Inicializar pool de hilos
-    init_thread_pool(threads, thread_data, NUM_THREADS, src_dir, dst_dir);
 
-    // Esperar a que los hilos terminen
+    init_thread_pool(threads, thread_data, NUM_THREADS, src_dir, dst_dir);
+    
     wait_for_threads(threads, NUM_THREADS);
     
-    // Limpiar y liberar recursos
     fclose(logfile);
     pthread_mutex_destroy(&lock);
     pthread_mutex_destroy(&log_lock);
